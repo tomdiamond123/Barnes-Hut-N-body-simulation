@@ -6,7 +6,8 @@
 using coords = std::pair<double, double>;
 
 double SIMSIZE {100*(3e8*365.25*24*60*60)};
-int NUMOFBODIES {100};
+double SCALE {1000/SIMSIZE};
+int NUMOFBODIES {1000};
 
 
 struct Body{
@@ -145,8 +146,6 @@ public:
     QuadTree() : root(nullptr) {}
 
     void insertBody(const Body& body){
-        
-
         if (root == nullptr){
             Node* newNode = new Node(body.position, body.mass, SIMSIZE, {0,0}, {SIMSIZE, SIMSIZE}, true);
             root = newNode;
@@ -160,25 +159,38 @@ public:
 
 };
 
+// void drawBody(sf::RenderWindow& window, Body body){
+//     float x {static_cast<float>(body.position.first * SCALE)};
+//     float y {static_cast<float>(body.position.second * SCALE)};
+
+
+// }
 
 int main()
 {
-	QuadTree quadtree {};
+	sf::RenderWindow window( sf::VideoMode( { 1000, 1000 } ), "Barnes-Hut N Body Simulation" );
+
+    QuadTree quadtree {};
     std::mt19937 mt{std::random_device{}()};
     // std::uniform_int_distribution createRandomPosition{0, static_cast<int>(SIMSIZE)};
     std::uniform_real_distribution createRandomPosition{0.0, SIMSIZE};
 
-    std::vector<Body> Bodies {};
+    sf::CircleShape bodyShape {};
+    bodyShape.setRadius(2);
+    bodyShape.setFillColor(sf::Color::Yellow);
+    bodyShape.setOrigin({2.0f,2.0f});
+
+    std::vector<Body> bodies {};
 
     for (int i; i<NUMOFBODIES; i++){
         Body tempBody {{createRandomPosition(mt), createRandomPosition(mt)}, 1e30, 0.0, 0.0};
         quadtree.insertBody(tempBody);
-        Bodies.push_back(tempBody);
+        bodies.push_back(tempBody);
+
+
+        // bodyShape.setPosition({static_cast<float>(tempBody.position.first * SCALE), static_cast<float>(tempBody.position.second * SCALE)});
+        // window.draw(bodyShape);
     }
-	
-	sf::RenderWindow window( sf::VideoMode( { 200, 200 } ), "SFML works!" );
-	sf::CircleShape shape( 100.f );
-	shape.setFillColor( sf::Color::Green );
 
 	while ( window.isOpen() )
 	{
@@ -189,7 +201,10 @@ int main()
 		}
 
 		window.clear();
-		window.draw( shape );
+        for (Body body: bodies){
+            bodyShape.setPosition({static_cast<float>(body.position.first * SCALE), static_cast<float>(body.position.second * SCALE)});
+            window.draw(bodyShape);
+        }
 		window.display();
 	}
 }
