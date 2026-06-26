@@ -1,6 +1,7 @@
 #include <SFML/Graphics.hpp>
 #include <iostream>
 #include <random>
+#include <vector>
 
 using coords = std::pair<double, double>;
 
@@ -167,9 +168,12 @@ int main()
     // std::uniform_int_distribution createRandomPosition{0, static_cast<int>(SIMSIZE)};
     std::uniform_real_distribution createRandomPosition{0.0, SIMSIZE};
 
+    std::vector<Body> Bodies {};
+
     for (int i; i<NUMOFBODIES; i++){
         Body tempBody {{createRandomPosition(mt), createRandomPosition(mt)}, 1e30, 0.0, 0.0};
         quadtree.insertBody(tempBody);
+        Bodies.push_back(tempBody);
     }
 	
 	sf::RenderWindow window( sf::VideoMode( { 200, 200 } ), "SFML works!" );
