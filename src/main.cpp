@@ -46,9 +46,10 @@ private:
 
     void updateMassAndCentreofMass(const Body& body, Node* node){
         auto [nodeX, nodeY] = node->centreOfMass;
+        double mass = node->mass + body.mass;
+        nodeX = (nodeX*node->mass + body.position.first*body.mass)/mass;
+        nodeY = (nodeY*node->mass + body.position.second*body.mass)/mass;
         node->mass += body.mass;
-        nodeX = (nodeX*node->mass + body.position.first*body.mass)/node->mass;
-        nodeY = (nodeY*node->mass + body.position.second*body.mass)/node->mass;
         node->centreOfMass = {nodeX, nodeY};
     }
 
@@ -58,7 +59,6 @@ private:
         updateMassAndCentreofMass(body, node);
         recursiveInsertBody(oldBody, node);
         recursiveInsertBody(body, node);
-
     }
 
     void recursiveInsertBody(const Body& body, Node* root){
@@ -75,11 +75,11 @@ private:
             }
             else{
                 Node* node = root->topLeft;
-                updateMassAndCentreofMass(body, node);
                 if (node->isLeaf){
                     subdivide(body, node);
                 }
                 else{
+                    updateMassAndCentreofMass(body, node);
                     recursiveInsertBody(body, node);
                 }
             }
@@ -111,11 +111,11 @@ private:
             }
             else{
                 Node* node = root->bottomLeft;
-                updateMassAndCentreofMass(body, node);
                 if (node->isLeaf){
                     subdivide(body, node);
                 }
                 else{
+                    updateMassAndCentreofMass(body, node);
                     recursiveInsertBody(body, node);
                 }
             }
@@ -128,11 +128,11 @@ private:
             }
             else{
                 Node* node = root->bottomRight;
-                updateMassAndCentreofMass(body, node);
                 if (node->isLeaf){
                     subdivide(body, node);
                 }
                 else{
+                    updateMassAndCentreofMass(body, node);
                     recursiveInsertBody(body, node);
                 }
             }
@@ -152,6 +152,7 @@ public:
             return;
         } else{
             recursiveInsertBody(body, root);
+            updateMassAndCentreofMass(body, root);
         }
     }
 
