@@ -231,6 +231,9 @@ int main()
 {
 	sf::RenderWindow window( sf::VideoMode( { 1000, 1000 } ), "Barnes-Hut N Body Simulation" );
 
+    sf::Clock clock;
+    float fps;
+
     QuadTree* quadtree;
     quadtree = new QuadTree{};
     std::mt19937 mt{std::random_device{}()};
@@ -262,6 +265,11 @@ int main()
 			if ( event->is<sf::Event::Closed>() )
 				window.close();
 		}
+
+        float currentTime = clock.restart().asSeconds();
+        fps = 1.0f / currentTime;
+        
+        std::cout << "FPS: " << static_cast<int>(fps) << "\n";
 
 		window.clear();
 
