@@ -2,12 +2,16 @@
 #include <iostream>
 #include <random>
 #include <vector>
+#include <cmath>
 
 using coords = std::pair<double, double>;
 
-double SIMSIZE {100*(3e8*365.25*24*60*60)};
-double SCALE {1000/SIMSIZE};
-int NUMOFBODIES {1000};
+const double SIMSIZE {100*(3e8*365.25*24*60*60)};
+const double SCALE {1000/SIMSIZE};
+const int NUMOFBODIES {1000};
+const double theta = 0.5;
+const double G {6.67438e-11};
+const double TIMESTEP = 3600*24;
 
 
 struct Body{
@@ -141,6 +145,45 @@ private:
         }
     }
 
+    double calcDistance(coords a, coords b){
+        double distanceX {a.first-b.first};
+        double distanceY {a.second-b.second};
+        return std::sqrt(distanceX*distanceX + distanceY*distanceY);
+    }
+
+    std::pair<double, double> attraction(const Body& body, const Node* node){
+        double distance {};
+        double distanceX {body.position.first-node->centreOfMass.first};
+        double distanceY {body.position.second-node->centreOfMass.second};
+        distance = calcDistance(body.position, node->centreOfMass);
+
+        double force {G * body.mass * node->mass / distance*distance};
+        double angle {std::atan2(distanceY, distanceX)};
+        double forceX {std::cos(angle) * force};
+        double forceY {std::sin(angle) * force};
+    }
+
+    void recursiveForceCalculation(const Body& body, const Node* node, double& totalFx, double& totalFy){
+        if (node->isLeaf){
+            auto [fx, fy] = attraction(body, node);
+            totalFx += fx;
+            totalFy += fy;
+        }
+        else if((node->length/calcDistance(body.position, node->centreOfMass)) < theta) {
+            auto [fx, fy] = attraction(body, node);
+            totalFx += fx;
+            totalFy += fy;
+        }
+        else{
+            recursiveForceCalculation(body, node->topLeft, totalFx, totalFy);
+            recursiveForceCalculation(body, node->topRight, totalFx, totalFy);
+            recursiveForceCalculation(body, node->bottomLeft, totalFx, totalFy);
+            recursiveForceCalculation(body, node->bottomRight, totalFx, totalFy);
+        }
+    }
+
+    
+
 public:
     //constructor
     QuadTree() : root(nullptr) {}
@@ -156,15 +199,18 @@ public:
         }
     }
 
+    void updateBodyPosition(Body& body){
+        double totalFx {};
+        double totalFy {};
+        recursiveForceCalculation(body, root, totalFx, totalFy);
 
+        body.xVel += totalFx / body.mass * TIMESTEP;
+        body.yVel += totalFy / body.mass * TIMESTEP;
+
+        body.position.first += body.xVel * TIMESTEP;
+        body.position.second += body.yVel * TIMESTEP;
+    }
 };
-
-// void drawBody(sf::RenderWindow& window, Body body){
-//     float x {static_cast<float>(body.position.first * SCALE)};
-//     float y {static_cast<float>(body.position.second * SCALE)};
-
-
-// }
 
 int main()
 {
@@ -201,6 +247,8 @@ int main()
 		}
 
 		window.clear();
+
+        
         for (Body body: bodies){
             bodyShape.setPosition({static_cast<float>(body.position.first * SCALE), static_cast<float>(body.position.second * SCALE)});
             window.draw(bodyShape);
