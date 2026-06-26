@@ -3,6 +3,7 @@
 #include <random>
 #include <vector>
 #include <cmath>
+#include <algorithm>
 
 using coords = std::pair<double, double>;
 
@@ -11,7 +12,7 @@ const double SCALE {1000/SIMSIZE};
 const int NUMOFBODIES {1000};
 const double theta = 0.5;
 const double G {6.67438e-11};
-const double TIMESTEP = 3600*24*1000;
+const double TIMESTEP = 3600*24*365;
 
 
 struct Body{
@@ -161,8 +162,8 @@ private:
 
     std::pair<double, double> attraction(const Body& body, const Node* node){
         double distance {};
-        double distanceX {body.position.first-node->centreOfMass.first};
-        double distanceY {body.position.second-node->centreOfMass.second};
+        double distanceX {node->centreOfMass.first-body.position.first};
+        double distanceY {node->centreOfMass.second-body.position.second};
         distance = calcDistance(body.position, node->centreOfMass);
 
         double force {G * body.mass * node->mass / (distance*distance)};
@@ -253,7 +254,7 @@ int main()
         // window.draw(bodyShape);
     }
 
-    window.setFramerateLimit(60);
+    // window.setFramerateLimit(60);
 	while ( window.isOpen() )
 	{
 		while ( const std::optional event = window.pollEvent() )
@@ -278,6 +279,9 @@ int main()
             quadtree->insertBody(body);
         }
 
-		
+        bodies.erase(std::remove_if(bodies.begin(), bodies.end(), [](const Body& body){
+            return body.position.first < 0 || body.position.second < 0 
+                || body.position.first > SIMSIZE || body.position.second > SIMSIZE;
+        }), bodies.end());
 	}
 }
