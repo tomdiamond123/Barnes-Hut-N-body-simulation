@@ -6,12 +6,12 @@
 
 using coords = std::pair<double, double>;
 
-const double SIMSIZE {100*(3e8*365.25*24*60*60)};
+const double SIMSIZE {(3e8*365.25*24*60*60)};
 const double SCALE {1000/SIMSIZE};
 const int NUMOFBODIES {1000};
 const double theta = 0.5;
 const double G {6.67438e-11};
-const double TIMESTEP = 3600*24;
+const double TIMESTEP = 3600*24*1000;
 
 
 struct Body{
@@ -42,13 +42,21 @@ class Node {
         Node(coords centreOfMass, double mass, double length, coords boundTopLeft, coords boundBottomRight, bool isLeaf) 
         : centreOfMass(centreOfMass), mass(mass), length(length), boundTopLeft(boundTopLeft), boundBottomRight(boundBottomRight), 
         isLeaf(isLeaf), topLeft(nullptr), topRight(nullptr), bottomLeft(nullptr), bottomRight(nullptr) {}
+
+        //destructor
+        ~Node(){
+            delete topLeft;
+            delete topRight;
+            delete bottomLeft;
+            delete bottomRight;
+        }
 };
 
 
 class QuadTree {
 private:
     //pointer to the root of the tree
-    Node* root;
+    Node* root {nullptr};
 
     void updateMassAndCentreofMass(const Body& body, Node* node){
         auto [nodeX, nodeY] = node->centreOfMass;
@@ -157,10 +165,12 @@ private:
         double distanceY {body.position.second-node->centreOfMass.second};
         distance = calcDistance(body.position, node->centreOfMass);
 
-        double force {G * body.mass * node->mass / distance*distance};
+        double force {G * body.mass * node->mass / (distance*distance)};
         double angle {std::atan2(distanceY, distanceX)};
         double forceX {std::cos(angle) * force};
         double forceY {std::sin(angle) * force};
+
+        return {forceX, forceY};
     }
 
     void recursiveForceCalculation(const Body& body, const Node* node, double& totalFx, double& totalFy){
@@ -187,6 +197,10 @@ private:
 public:
     //constructor
     QuadTree() : root(nullptr) {}
+
+    ~QuadTree(){
+        delete root;
+    }
 
     void insertBody(const Body& body){
         if (root == nullptr){
@@ -216,7 +230,8 @@ int main()
 {
 	sf::RenderWindow window( sf::VideoMode( { 1000, 1000 } ), "Barnes-Hut N Body Simulation" );
 
-    QuadTree quadtree {};
+    QuadTree* quadtree;
+    quadtree = new QuadTree{};
     std::mt19937 mt{std::random_device{}()};
     // std::uniform_int_distribution createRandomPosition{0, static_cast<int>(SIMSIZE)};
     std::uniform_real_distribution createRandomPosition{0.0, SIMSIZE};
@@ -230,7 +245,7 @@ int main()
 
     for (int i; i<NUMOFBODIES; i++){
         Body tempBody {{createRandomPosition(mt), createRandomPosition(mt)}, 1e30, 0.0, 0.0};
-        quadtree.insertBody(tempBody);
+        quadtree->insertBody(tempBody);
         bodies.push_back(tempBody);
 
 
@@ -238,6 +253,7 @@ int main()
         // window.draw(bodyShape);
     }
 
+    window.setFramerateLimit(60);
 	while ( window.isOpen() )
 	{
 		while ( const std::optional event = window.pollEvent() )
@@ -248,11 +264,20 @@ int main()
 
 		window.clear();
 
-        
-        for (Body body: bodies){
+        for (Body& body: bodies){
+            quadtree->updateBodyPosition(body);
             bodyShape.setPosition({static_cast<float>(body.position.first * SCALE), static_cast<float>(body.position.second * SCALE)});
             window.draw(bodyShape);
         }
-		window.display();
+        window.display();
+
+
+        delete quadtree;
+        quadtree = new QuadTree{};
+        for (Body& body: bodies){
+            quadtree->insertBody(body);
+        }
+
+		
 	}
 }
