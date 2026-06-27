@@ -7,12 +7,14 @@
 
 using coords = std::pair<double, double>;
 
-const double SIMSIZE {(3e8*365.25*24*60*60)};
-const double SCALE {1000/SIMSIZE};
+const int WINDOWSIZE = 1500;
+const double STARTINGSIZE {(3e8*365.25*24*60*60)};
+const double SIMSIZE {STARTINGSIZE*1.5};
+const double SCALE {WINDOWSIZE/SIMSIZE};
 const int NUMOFBODIES {1000};
 const double theta = 0.5;
 const double G {6.67438e-11};
-const double TIMESTEP = 3600*24*1000;
+const double TIMESTEP = 3600*24*2000;
 const double STARTMASS = 1e30;
 // const double STARTINGVELOCITYRANGE = 1e5;
 
@@ -231,7 +233,7 @@ public:
 
 int main()
 {
-	sf::RenderWindow window( sf::VideoMode( { 1000, 1000 } ), "Barnes-Hut N Body Simulation" );
+	sf::RenderWindow window( sf::VideoMode( { WINDOWSIZE, WINDOWSIZE } ), "Barnes-Hut N Body Simulation" );
 
     sf::Clock clock;
     float fps;
@@ -240,7 +242,7 @@ int main()
     quadtree = new QuadTree{};
     std::mt19937 mt{std::random_device{}()};
     // std::uniform_int_distribution createRandomPosition{0, static_cast<int>(SIMSIZE)};
-    std::uniform_real_distribution createRandomPosition{0.0, SIMSIZE};
+    std::uniform_real_distribution createRandomPosition{0.0, STARTINGSIZE};
     // std::uniform_real_distribution createRandomVelocity{-1*STARTINGVELOCITYRANGE, STARTINGVELOCITYRANGE};
 
     sf::CircleShape bodyShape {};
@@ -251,9 +253,10 @@ int main()
     std::vector<Body> bodies {};
 
     double totalMass {STARTMASS*NUMOFBODIES};
+    double offset {(SIMSIZE-STARTINGSIZE)/2};
 
-    for (int i; i<NUMOFBODIES; i++){
-        Body tempBody {{createRandomPosition(mt), createRandomPosition(mt)}, 1e30, 0.0, 0.0};
+    for (int i=0; i<NUMOFBODIES; i++){
+        Body tempBody {{createRandomPosition(mt)+offset, createRandomPosition(mt)+offset}, 1e30, 0.0, 0.0};
 
         //displacement from centre
         double dx = tempBody.position.first - SIMSIZE/2;
@@ -275,7 +278,7 @@ int main()
         // window.draw(bodyShape);
     }
 
-    window.setFramerateLimit(60);
+    // window.setFramerateLimit(60);
 	while ( window.isOpen() )
 	{
 		while ( const std::optional event = window.pollEvent() )
