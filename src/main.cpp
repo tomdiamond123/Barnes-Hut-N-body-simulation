@@ -12,7 +12,9 @@ const double SCALE {1000/SIMSIZE};
 const int NUMOFBODIES {1000};
 const double theta = 0.5;
 const double G {6.67438e-11};
-const double TIMESTEP = 3600*24*365;
+const double TIMESTEP = 3600*24*1000;
+const double STARTMASS = 1e30;
+// const double STARTINGVELOCITYRANGE = 1e5;
 
 
 struct Body{
@@ -239,6 +241,7 @@ int main()
     std::mt19937 mt{std::random_device{}()};
     // std::uniform_int_distribution createRandomPosition{0, static_cast<int>(SIMSIZE)};
     std::uniform_real_distribution createRandomPosition{0.0, SIMSIZE};
+    // std::uniform_real_distribution createRandomVelocity{-1*STARTINGVELOCITYRANGE, STARTINGVELOCITYRANGE};
 
     sf::CircleShape bodyShape {};
     bodyShape.setRadius(2);
@@ -247,8 +250,23 @@ int main()
 
     std::vector<Body> bodies {};
 
+    double totalMass {STARTMASS*NUMOFBODIES};
+
     for (int i; i<NUMOFBODIES; i++){
         Body tempBody {{createRandomPosition(mt), createRandomPosition(mt)}, 1e30, 0.0, 0.0};
+
+        //displacement from centre
+        double dx = tempBody.position.first - SIMSIZE/2;
+        double dy = tempBody.position.second - SIMSIZE/2;
+        //straightline distance from centre
+        double dist = std::sqrt(dx*dx + dy*dy);
+        //speed required to maintain orbit, GM/r^2 = mv^2/r, v=sqrt(GM/R)
+        double orbitalSpeed = std::sqrt(G * totalMass / dist);
+
+        //perpindicular vector of (dx,dy) is (-dy,dx)
+        tempBody.xVel = -dy/dist * orbitalSpeed;
+        tempBody.yVel =  dx/dist * orbitalSpeed;
+
         quadtree->insertBody(tempBody);
         bodies.push_back(tempBody);
 
@@ -257,7 +275,7 @@ int main()
         // window.draw(bodyShape);
     }
 
-    // window.setFramerateLimit(60);
+    window.setFramerateLimit(60);
 	while ( window.isOpen() )
 	{
 		while ( const std::optional event = window.pollEvent() )
