@@ -4,6 +4,7 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <chrono>
 
 using coords = std::pair<double, double>;
 
@@ -11,13 +12,34 @@ const int WINDOWSIZE = 1500;
 const double STARTINGSIZE {(3e8*365.25*24*60*60)};
 const double SIMSIZE {STARTINGSIZE*1.5};
 const double SCALE {WINDOWSIZE/SIMSIZE};
-const int NUMOFBODIES {1000};
+const int NUMOFBODIES {3000};
 const double theta = 0.5;
 const double G {6.67438e-11};
-const double TIMESTEP = 3600*24*2000;
+const double TIMESTEP = 3600*24*1000;
 const double STARTMASS = 1e30;
 // const double STARTINGVELOCITYRANGE = 1e5;
 
+// timing class - https://www.learncpp.com/cpp-tutorial/timing-your-code/
+class Timer
+{
+private:
+	// Type aliases to make accessing nested type easier
+	using Clock = std::chrono::steady_clock;
+	using Second = std::chrono::duration<double, std::ratio<1> >;
+
+	std::chrono::time_point<Clock> m_beg { Clock::now() };
+
+public:
+	void reset()
+	{
+		m_beg = Clock::now();
+	}
+
+	double elapsed() const
+	{
+		return std::chrono::duration_cast<Second>(Clock::now() - m_beg).count();
+	}
+};
 
 struct Body{
     coords position{};
@@ -231,12 +253,14 @@ public:
     }
 };
 
+
 int main()
 {
 	sf::RenderWindow window( sf::VideoMode( { WINDOWSIZE, WINDOWSIZE } ), "Barnes-Hut N Body Simulation" );
 
     sf::Clock clock;
     float fps;
+    Timer t;
 
     QuadTree* quadtree;
     quadtree = new QuadTree{};
@@ -294,6 +318,7 @@ int main()
 
 		window.clear();
 
+        t.reset();
         for (Body& body: bodies){
             quadtree->updateBodyPosition(body);
             bodyShape.setPosition({static_cast<float>(body.position.first * SCALE), static_cast<float>(body.position.second * SCALE)});
@@ -301,12 +326,19 @@ int main()
         }
         window.display();
 
+        // std::cout << "Time to update bodies positions and draw to screen: " << t.elapsed() << "seconds\n";
+        t.reset();
 
+        // std::cout << "Time to delete bodies: " << t.elapsed() << "seconds\n";
         delete quadtree;
+        t.reset();
+
+        // std::cout << "Time to create quadtree and insert bodies: " << t.elapsed() << "seconds\n";
         quadtree = new QuadTree{};
         for (Body& body: bodies){
             quadtree->insertBody(body);
         }
+        t.reset();
 
         bodies.erase(std::remove_if(bodies.begin(), bodies.end(), [](const Body& body){
             return body.position.first < 0 || body.position.second < 0 
