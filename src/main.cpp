@@ -5,6 +5,7 @@
 #include <cmath>
 #include <algorithm>
 #include <chrono>
+// #include <execution>
 
 using coords = std::pair<double, double>;
 
@@ -330,6 +331,18 @@ int main()
             bodyShape.setPosition({static_cast<float>(body.position.first * SCALE), static_cast<float>(body.position.second * SCALE)});
             window.draw(bodyShape);
         }
+
+        // Not used as no discernable performace benefit, either due to gcc not implementing it or just equivalent performances
+        // std::for_each(std::execution::par_unseq, bodies.begin(), bodies.end(), 
+        //                 [quadtree](Body& body){
+        //                     quadtree->updateBodyPosition(body);
+        //                 });
+
+        // for (Body& body: bodies){
+        //     bodyShape.setPosition({static_cast<float>(body.position.first * SCALE), static_cast<float>(body.position.second * SCALE)});
+        //     window.draw(bodyShape);
+        // }
+
         window.display();
 
         // std::cout << "Time to update bodies positions and draw to screen: " << t.elapsed() << "seconds\n";
