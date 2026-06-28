@@ -9,15 +9,28 @@
 
 using coords = std::pair<double, double>;
 
+// Explanation of Barnes-Hut algorithm - https://arborjs.org/docs/barnes-hut
+
+// Code tagged //toggle is for logging and measuring performance of different parts of the program so can be turned on or off
+
+// --------- Change these ---------
 const int WINDOWSIZE = 1500;
-const double STARTINGSIZE {(3e8*365.25*24*60*60)};
-const double SIMSIZE {STARTINGSIZE*1.5};
+const double STARTINGSIZE {(3e8*365.25*24*60*60)}; // size in metres
+
+// buffer round the edge of STARTING SIZE to allow for movement of particles outside of starting area
+const double SIMSIZE {STARTINGSIZE*1.5}; 
+
+const int NUMOFBODIES {10000};
+
+const double theta = 0.5; // higher number = less acurate prediction but higher performance, 0.0 = brute force
+
+const double TIMESTEP = 3600*24*1000; // amount of time that passes each frame in seconds
+
+const double STARTMASS = 1e30; // in kilograms
+// --------------------------------
+
 const double SCALE {WINDOWSIZE/SIMSIZE};
-const int NUMOFBODIES {3000};
-const double theta = 0.5;
 const double G {6.67438e-11};
-const double TIMESTEP = 3600*24*1000;
-const double STARTMASS = 1e30;
 // const double STARTINGVELOCITYRANGE = 1e5;
 
 // timing class - https://www.learncpp.com/cpp-tutorial/timing-your-code/
@@ -56,6 +69,7 @@ class Node {
         double mass{};
         double length{};
 
+        //coords of top left and bottom right of node
         coords boundTopLeft{};
         coords boundBottomRight{};
 
@@ -181,7 +195,7 @@ private:
         }
     }
 
-    double calcDistance(coords a, coords b){
+    double calcDistance(coords a, coords b){ // distance = sqrt((x2-x1)^2+(y2-y1)^2)
         double distanceX {a.first-b.first};
         double distanceY {a.second-b.second};
         return std::sqrt(distanceX*distanceX + distanceY*distanceY);
@@ -193,6 +207,7 @@ private:
         double distanceY {node->centreOfMass.second-body.position.second};
         distance = calcDistance(body.position, node->centreOfMass);
 
+        // Gravitational Force: F = GMm/r^2, G = Gravitional constant
         double force {G * body.mass * node->mass / (distance*distance)};
         double angle {std::atan2(distanceY, distanceX)};
         double forceX {std::cos(angle) * force};
@@ -207,6 +222,7 @@ private:
             totalFx += fx;
             totalFy += fy;
         }
+        // if less than theta use approximation as one body
         else if((node->length/calcDistance(body.position, node->centreOfMass)) < theta) {
             auto [fx, fy] = attraction(body, node);
             totalFx += fx;
@@ -268,9 +284,12 @@ int main()
     QuadTree* quadtree;
     quadtree = new QuadTree{};
     std::mt19937 mt{std::random_device{}()};
+
+    // --------- Change these - replace with other method of creating starting positions ---------
     // std::uniform_int_distribution createRandomPosition{0, static_cast<int>(SIMSIZE)};
-    std::uniform_real_distribution createRandomPosition{0.0, STARTINGSIZE};
+    std::uniform_real_distribution createRandomPosition{0.0, STARTINGSIZE}; // random position in starting sim
     // std::uniform_real_distribution createRandomVelocity{-1*STARTINGVELOCITYRANGE, STARTINGVELOCITYRANGE};
+    // --------------------------------
 
     sf::CircleShape bodyShape {};
     bodyShape.setRadius(2);
@@ -283,12 +302,13 @@ int main()
     double offset {(SIMSIZE-STARTINGSIZE)/2};
 
     for (int i=0; i<NUMOFBODIES; i++){
+
+        // --------- Change these - replace with other method of creating starting positions ---------
         Body tempBody {{createRandomPosition(mt)+offset, createRandomPosition(mt)+offset}, 1e30, 0.0, 0.0};
 
-        //displacement from centre
+        // Make bodies orbit centre
         double dx = tempBody.position.first - SIMSIZE/2;
         double dy = tempBody.position.second - SIMSIZE/2;
-        //straightline distance from centre
         double dist = std::sqrt(dx*dx + dy*dy);
         //speed required to maintain orbit, GM/r^2 = mv^2/r, v=sqrt(GM/R)
         double orbitalSpeed = std::sqrt(G * totalMass / dist);
@@ -296,26 +316,24 @@ int main()
         //perpindicular vector of (dx,dy) is (-dy,dx)
         tempBody.xVel = -dy/dist * orbitalSpeed;
         tempBody.yVel =  dx/dist * orbitalSpeed;
+        // --------------------------------
 
         quadtree->insertBody(tempBody);
         bodies.push_back(tempBody);
-
-
-        // bodyShape.setPosition({static_cast<float>(tempBody.position.first * SCALE), static_cast<float>(tempBody.position.second * SCALE)});
-        // window.draw(bodyShape);
     }
 
-    // window.setFramerateLimit(60);
+    // window.setFramerateLimit(60); // turn on for constant frame rate
 	while ( window.isOpen() )
 	{
 		while ( const std::optional event = window.pollEvent() )
 		{
 			if ( event->is<sf::Event::Closed>() ){
-                std::cout << "Average FPS: " << averageFPS;
+                std::cout << "Average FPS: " << averageFPS; //toggle
 				window.close();
             }
 		}
 
+        // ------- toggle -------
         float currentTime = clock.restart().asSeconds();
         fps = 1.0f / currentTime;
         averageFPS = {(averageFPS*numFPSCounted+static_cast<int>(fps))/(numFPSCounted+1)};
@@ -323,9 +341,13 @@ int main()
         
         std::cout << "FPS: " << static_cast<int>(fps) << "\n";
 
+        // ----------------------
+
+
 		window.clear();
 
-        t.reset();
+        // t.reset(); // toggle
+
         for (Body& body: bodies){
             quadtree->updateBodyPosition(body);
             bodyShape.setPosition({static_cast<float>(body.position.first * SCALE), static_cast<float>(body.position.second * SCALE)});
@@ -345,20 +367,21 @@ int main()
 
         window.display();
 
-        // std::cout << "Time to update bodies positions and draw to screen: " << t.elapsed() << "seconds\n";
-        t.reset();
+        // std::cout << "Time to update bodies positions and draw to screen: " << t.elapsed() << "seconds\n"; //toggle
+        // t.reset();
 
-        // std::cout << "Time to delete bodies: " << t.elapsed() << "seconds\n";
+        // std::cout << "Time to delete bodies: " << t.elapsed() << "seconds\n"; //toggle
         delete quadtree;
-        t.reset();
+        // t.reset(); //toggle
 
-        // std::cout << "Time to create quadtree and insert bodies: " << t.elapsed() << "seconds\n";
+        // std::cout << "Time to create quadtree and insert bodies: " << t.elapsed() << "seconds\n"; //toggle
         quadtree = new QuadTree{};
         for (Body& body: bodies){
             quadtree->insertBody(body);
         }
-        t.reset();
+        // t.reset();//toggle
 
+        // remove body from bodies vector if outside range of sim
         bodies.erase(std::remove_if(bodies.begin(), bodies.end(), [](const Body& body){
             return body.position.first < 0 || body.position.second < 0 
                 || body.position.first > SIMSIZE || body.position.second > SIMSIZE;
