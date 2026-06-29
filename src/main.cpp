@@ -13,18 +13,20 @@ using coords = std::pair<double, double>;
 
 // Code tagged //toggle is for logging and measuring performance of different parts of the program so can be turned on or off
 
+// Code in --------- Change these --------- blocks can be changed to influence the behaviour of the sim.
+
 // --------- Change these ---------
 const int WINDOWSIZE = 1500;
-const double STARTINGSIZE {(3e8*365.25*24*60*60)}; // size in metres
+const double STARTINGSIZE {1*(3e8*365.25*24*60*60)}; // size in metres
 
 // buffer round the edge of STARTING SIZE to allow for movement of particles outside of starting area
 const double SIMSIZE {STARTINGSIZE*1.5}; 
 
-const int NUMOFBODIES {10000};
+const int NUMOFBODIES {2000};
 
 const double theta = 0.5; // higher number = less acurate prediction but higher performance, 0.0 = brute force
 
-const double TIMESTEP = 3600*24*1000; // amount of time that passes each frame in seconds
+const double TIMESTEP = 3600*24*100; // amount of time that passes each frame in seconds
 
 const double STARTMASS = 1e30; // in kilograms
 // --------------------------------
@@ -56,10 +58,12 @@ public:
 };
 
 struct Body{
+    int id{};
     coords position{};
     double mass{};
     double xVel{};
     double yVel{};
+    bool active{true};
 };
 
 
@@ -80,9 +84,11 @@ class Node {
         Node* bottomLeft;
         Node* bottomRight;
 
+        int bodyId{-1};
+
         // constructor
-        Node(coords centreOfMass, double mass, double length, coords boundTopLeft, coords boundBottomRight, bool isLeaf) 
-        : centreOfMass(centreOfMass), mass(mass), length(length), boundTopLeft(boundTopLeft), boundBottomRight(boundBottomRight), 
+        Node(int id, coords centreOfMass, double mass, double length, coords boundTopLeft, coords boundBottomRight, bool isLeaf) 
+        : bodyId(id), centreOfMass(centreOfMass), mass(mass), length(length), boundTopLeft(boundTopLeft), boundBottomRight(boundBottomRight), 
         isLeaf(isLeaf), topLeft(nullptr), topRight(nullptr), bottomLeft(nullptr), bottomRight(nullptr) {}
 
         //destructor
@@ -99,6 +105,7 @@ class QuadTree {
 private:
     //pointer to the root of the tree
     Node* root {nullptr};
+    const std::vector<Body>& bodies;
 
     void updateMassAndCentreofMass(const Body& body, Node* node){
         auto [nodeX, nodeY] = node->centreOfMass;
@@ -111,9 +118,11 @@ private:
 
     void subdivide(const Body& body, Node* node){
         node->isLeaf = false;
-        Body oldBody {node->centreOfMass, node->mass, 0.0, 0.0};
+        int oldId = node->bodyId;
+        node->bodyId = -1;
+        assert(bodies[oldId].id == oldId);
         updateMassAndCentreofMass(body, node);
-        recursiveInsertBody(oldBody, node);
+        recursiveInsertBody(bodies[oldId], node);
         recursiveInsertBody(body, node);
     }
 
@@ -127,7 +136,7 @@ private:
         if (x <= midX && y <= midY){
             if (root->topLeft == nullptr){
                 coords boundBottomRight = {root->boundBottomRight.first-root->length/2, root->boundBottomRight.second-root->length/2};
-                root->topLeft = new Node(body.position, body.mass, root->length/2, root->boundTopLeft, boundBottomRight, true);
+                root->topLeft = new Node(body.id, body.position, body.mass, root->length/2, root->boundTopLeft, boundBottomRight, true);
             }
             else{
                 Node* node = root->topLeft;
@@ -145,7 +154,7 @@ private:
             if (root->topRight == nullptr){
                 coords boundTopLeft = {root->boundTopLeft.first+root->length/2, root->boundTopLeft.second};
                 coords boundBottomRight = {root->boundBottomRight.first, root->boundBottomRight.second-root->length/2};
-                root->topRight = new Node(body.position, body.mass, root->length/2, boundTopLeft, boundBottomRight, true);
+                root->topRight = new Node(body.id, body.position, body.mass, root->length/2, boundTopLeft, boundBottomRight, true);
             }
             else{
                 Node* node = root->topRight;
@@ -163,7 +172,7 @@ private:
             if (root->bottomLeft == nullptr){
                 coords boundTopLeft = {root->boundTopLeft.first, root->boundTopLeft.second+root->length/2};
                 coords boundBottomRight = {root->boundBottomRight.first-root->length/2, root->boundBottomRight.second};
-                root->bottomLeft = new Node(body.position, body.mass, root->length/2, boundTopLeft, boundBottomRight, true);
+                root->bottomLeft = new Node(body.id, body.position, body.mass, root->length/2, boundTopLeft, boundBottomRight, true);
             }
             else{
                 Node* node = root->bottomLeft;
@@ -180,7 +189,7 @@ private:
         else if (x > midX && y > midY){
             if (root->bottomRight == nullptr){
                 coords boundTopLeft = {root->boundTopLeft.first+root->length/2, root->boundTopLeft.second+root->length/2};
-                root->bottomRight = new Node(body.position, body.mass, root->length/2, boundTopLeft, root->boundBottomRight, true);
+                root->bottomRight = new Node(body.id, body.position, body.mass, root->length/2, boundTopLeft, root->boundBottomRight, true);
             }
             else{
                 Node* node = root->bottomRight;
@@ -209,38 +218,50 @@ private:
 
         // Gravitational Force: F = GMm/r^2, G = Gravitional constant
         double force {G * body.mass * node->mass / (distance*distance)};
-        double angle {std::atan2(distanceY, distanceX)};
-        double forceX {std::cos(angle) * force};
-        double forceY {std::sin(angle) * force};
+        // double angle {std::atan2(distanceY, distanceX)};
+        // double forceX {std::cos(angle) * force};
+        // double forceY {std::sin(angle) * force};
+        double forceX {(distanceX / distance) * force};
+        double forceY {(distanceY / distance) * force};
 
         return {forceX, forceY};
     }
 
     void recursiveForceCalculation(const Body& body, const Node* node, double& totalFx, double& totalFy){
         if (node->isLeaf){
+            if (node->bodyId==body.id){
+                return;
+            }
+            leafCount++;
             auto [fx, fy] = attraction(body, node);
             totalFx += fx;
             totalFy += fy;
         }
         // if less than theta use approximation as one body
         else if((node->length/calcDistance(body.position, node->centreOfMass)) < theta) {
+            approxCount++;
             auto [fx, fy] = attraction(body, node);
             totalFx += fx;
             totalFy += fy;
         }
         else{
-            recursiveForceCalculation(body, node->topLeft, totalFx, totalFy);
-            recursiveForceCalculation(body, node->topRight, totalFx, totalFy);
-            recursiveForceCalculation(body, node->bottomLeft, totalFx, totalFy);
-            recursiveForceCalculation(body, node->bottomRight, totalFx, totalFy);
+            recurseCount++;
+            if (node->topLeft) recursiveForceCalculation(body, node->topLeft, totalFx, totalFy);
+            if (node->topRight) recursiveForceCalculation(body, node->topRight, totalFx, totalFy);
+            if (node->bottomLeft) recursiveForceCalculation(body, node->bottomLeft, totalFx, totalFy);
+            if (node->bottomRight) recursiveForceCalculation(body, node->bottomRight, totalFx, totalFy);
         }
     }
 
     
 
 public:
+    size_t leafCount = 0;
+    size_t approxCount = 0;
+    size_t recurseCount = 0;
+
     //constructor
-    QuadTree() : root(nullptr) {}
+    QuadTree(const std::vector<Body>& bodies) : bodies(bodies), root(nullptr) {}
 
     ~QuadTree(){
         delete root;
@@ -248,9 +269,11 @@ public:
 
     void insertBody(const Body& body){
         if (root == nullptr){
-            Node* newNode = new Node(body.position, body.mass, SIMSIZE, {0,0}, {SIMSIZE, SIMSIZE}, true);
+            Node* newNode = new Node(body.id, body.position, body.mass, SIMSIZE, {0,0}, {SIMSIZE, SIMSIZE}, true);
             root = newNode;
             return;
+        } else if(root->isLeaf){
+            subdivide(body, root);
         } else{
             recursiveInsertBody(body, root);
             updateMassAndCentreofMass(body, root);
@@ -281,8 +304,6 @@ int main()
     float numFPSCounted{0};
     Timer t;
 
-    QuadTree* quadtree;
-    quadtree = new QuadTree{};
     std::mt19937 mt{std::random_device{}()};
 
     // --------- Change these - replace with other method of creating starting positions ---------
@@ -297,6 +318,10 @@ int main()
     bodyShape.setOrigin({2.0f,2.0f});
 
     std::vector<Body> bodies {};
+    bodies.reserve(NUMOFBODIES);
+
+    QuadTree* quadtree;
+    quadtree = new QuadTree(bodies);
 
     double totalMass {STARTMASS*NUMOFBODIES};
     double offset {(SIMSIZE-STARTINGSIZE)/2};
@@ -304,7 +329,7 @@ int main()
     for (int i=0; i<NUMOFBODIES; i++){
 
         // --------- Change these - replace with other method of creating starting positions ---------
-        Body tempBody {{createRandomPosition(mt)+offset, createRandomPosition(mt)+offset}, 1e30, 0.0, 0.0};
+        Body tempBody {i, {createRandomPosition(mt)+offset, createRandomPosition(mt)+offset}, 1e30, 0.0, 0.0};
 
         // Make bodies orbit centre
         double dx = tempBody.position.first - SIMSIZE/2;
@@ -318,8 +343,8 @@ int main()
         tempBody.yVel =  dx/dist * orbitalSpeed;
         // --------------------------------
 
-        quadtree->insertBody(tempBody);
         bodies.push_back(tempBody);
+        quadtree->insertBody(bodies.back());
     }
 
     // window.setFramerateLimit(60); // turn on for constant frame rate
@@ -339,16 +364,24 @@ int main()
         averageFPS = {(averageFPS*numFPSCounted+static_cast<int>(fps))/(numFPSCounted+1)};
         ++numFPSCounted;
         
-        std::cout << "FPS: " << static_cast<int>(fps) << "\n";
+        // std::cout << "FPS: " << static_cast<int>(fps) << "\n";
 
         // ----------------------
-
 
 		window.clear();
 
         // t.reset(); // toggle
 
+        // std::cout << bodies.size() << '\n';
         for (Body& body: bodies){
+            if (!body.active) continue;
+
+            if (body.position.first < 0 || body.position.second < 0 || 
+                body.position.first > SIMSIZE || body.position.second > SIMSIZE){
+                    body.active = false;
+                    continue;
+                }
+
             quadtree->updateBodyPosition(body);
             bodyShape.setPosition({static_cast<float>(body.position.first * SCALE), static_cast<float>(body.position.second * SCALE)});
             window.draw(bodyShape);
@@ -370,21 +403,26 @@ int main()
         // std::cout << "Time to update bodies positions and draw to screen: " << t.elapsed() << "seconds\n"; //toggle
         // t.reset();
 
-        // std::cout << "Time to delete bodies: " << t.elapsed() << "seconds\n"; //toggle
+        // std::cout << "leafCount: " << quadtree->leafCount << "\n";
+        // std::cout << "approxCount: " << quadtree->approxCount << "\n";
+        // std::cout << "recurseCount: " << quadtree->recurseCount << "\n";
+
         delete quadtree;
+        // std::cout << "Time to delete bodies: " << t.elapsed() << "seconds\n"; //toggle
         // t.reset(); //toggle
 
-        // std::cout << "Time to create quadtree and insert bodies: " << t.elapsed() << "seconds\n"; //toggle
-        quadtree = new QuadTree{};
+        quadtree = new QuadTree(bodies);
         for (Body& body: bodies){
+            if (!body.active) continue;
             quadtree->insertBody(body);
         }
+        // std::cout << "Time to create quadtree and insert bodies: " << t.elapsed() << "seconds\n"; //toggle
         // t.reset();//toggle
 
         // remove body from bodies vector if outside range of sim
-        bodies.erase(std::remove_if(bodies.begin(), bodies.end(), [](const Body& body){
-            return body.position.first < 0 || body.position.second < 0 
-                || body.position.first > SIMSIZE || body.position.second > SIMSIZE;
-        }), bodies.end());
+        // bodies.erase(std::remove_if(bodies.begin(), bodies.end(), [](const Body& body){
+        //     return body.position.first < 0 || body.position.second < 0 
+        //         || body.position.first > SIMSIZE || body.position.second > SIMSIZE;
+        // }), bodies.end());
 	}
 }
