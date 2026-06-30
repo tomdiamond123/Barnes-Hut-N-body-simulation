@@ -5,7 +5,7 @@
 #include <cmath>
 #include <algorithm>
 #include <chrono>
-// #include <execution>
+#include <execution>
 
 using coords = std::pair<double, double>;
 
@@ -395,54 +395,62 @@ int main()
 
 		window.clear();
 
-        // t.reset(); // toggle
+        t.reset(); // toggle
 
         // std::cout << bodies.size() << '\n';
-        for (Body& body: bodies){
-            if (!body.active) continue;
-
-            if (body.position.first < 0 || body.position.second < 0 || 
-                body.position.first > SIMSIZE || body.position.second > SIMSIZE){
-                    body.active = false;
-                    continue;
-                }
-
-            quadtree->updateBodyPosition(body);
-            bodyShape.setPosition({static_cast<float>(body.position.first * SCALE), static_cast<float>(body.position.second * SCALE)});
-            window.draw(bodyShape);
-        }
-
-        // Not used as no discernable performace benefit, either due to gcc not implementing it or just equivalent performances
-        // std::for_each(std::execution::par_unseq, bodies.begin(), bodies.end(), 
-        //                 [quadtree](Body& body){
-        //                     quadtree->updateBodyPosition(body);
-        //                 });
-
         // for (Body& body: bodies){
+        //     if (!body.active) continue;
+
+        //     if (body.position.first < 0 || body.position.second < 0 || 
+        //         body.position.first > SIMSIZE || body.position.second > SIMSIZE){
+        //             body.active = false;
+        //             continue;
+        //         }
+
+        //     quadtree->updateBodyPosition(body);
         //     bodyShape.setPosition({static_cast<float>(body.position.first * SCALE), static_cast<float>(body.position.second * SCALE)});
         //     window.draw(bodyShape);
         // }
 
+        // Not used as no discernable performace benefit, either due to gcc not implementing it or just equivalent performances
+        std::for_each(std::execution::par_unseq, bodies.begin(), bodies.end(), 
+                        [quadtree](Body& body){
+                            if (!body.active) return;
+
+                            if (body.position.first < 0 || body.position.second < 0 || 
+                                body.position.first > SIMSIZE || body.position.second > SIMSIZE){
+                                    body.active = false;
+                                    return;
+                                }
+                            quadtree->updateBodyPosition(body);
+                        });
+
+        for (Body& body: bodies){
+            if (!body.active) continue;
+            bodyShape.setPosition({static_cast<float>(body.position.first * SCALE), static_cast<float>(body.position.second * SCALE)});
+            window.draw(bodyShape);
+        }
+
         window.display();
 
-        // std::cout << "Time to update bodies positions and draw to screen: " << t.elapsed() << "seconds\n"; //toggle
-        // t.reset();
+        std::cout << "Time to update bodies positions and draw to screen: " << t.elapsed() << "seconds\n"; //toggle
+        t.reset();
 
         // std::cout << "leafCount: " << quadtree->leafCount << "\n";
         // std::cout << "approxCount: " << quadtree->approxCount << "\n";
         // std::cout << "recurseCount: " << quadtree->recurseCount << "\n";
 
         delete quadtree;
-        // std::cout << "Time to delete bodies: " << t.elapsed() << "seconds\n"; //toggle
-        // t.reset(); //toggle
+        std::cout << "Time to delete bodies: " << t.elapsed() << "seconds\n"; //toggle
+        t.reset(); //toggle
 
         quadtree = new QuadTree(bodies);
         for (Body& body: bodies){
             if (!body.active) continue;
             quadtree->insertBody(body);
         }
-        // std::cout << "Time to create quadtree and insert bodies: " << t.elapsed() << "seconds\n"; //toggle
-        // t.reset();//toggle
+        std::cout << "Time to create quadtree and insert bodies: " << t.elapsed() << "seconds\n"; //toggle
+        t.reset();//toggle
 
         // remove body from bodies vector if outside range of sim
         // bodies.erase(std::remove_if(bodies.begin(), bodies.end(), [](const Body& body){
