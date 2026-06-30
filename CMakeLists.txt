@@ -15,5 +15,6 @@ FetchContent_MakeAvailable(SFML)
 add_executable(barneshut src/main.cpp)
 target_compile_features(barneshut PRIVATE cxx_std_17)
 target_link_libraries(barneshut PRIVATE SFML::Graphics)
+target_compile_options(barneshut PRIVATE -ffast-math)
 
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT barneshut)
