@@ -29,6 +29,9 @@ const double theta = 0.5; // higher number = less acurate prediction but higher 
 const double TIMESTEP = 3600*24*100; // amount of time that passes each frame in seconds
 
 const double STARTMASS = 1e30; // in kilograms
+
+const double EPSILON = SIMSIZE * 0.001; // softens forces produced by objects being very close to eachother
+// const double EPSILON = 0;
 // --------------------------------
 
 const double SCALE {WINDOWSIZE/SIMSIZE};
@@ -120,10 +123,9 @@ private:
         node->isLeaf = false;
         int oldId = node->bodyId;
         node->bodyId = -1;
-        assert(bodies[oldId].id == oldId);
-        updateMassAndCentreofMass(body, node);
         recursiveInsertBody(bodies[oldId], node);
         recursiveInsertBody(body, node);
+        updateMassAndCentreofMass(body, node);
     }
 
     void recursiveInsertBody(const Body& body, Node* root){
@@ -211,10 +213,9 @@ private:
     }
 
     std::pair<double, double> attraction(const Body& body, const Node* node){
-        double distance {};
         double distanceX {node->centreOfMass.first-body.position.first};
         double distanceY {node->centreOfMass.second-body.position.second};
-        distance = calcDistance(body.position, node->centreOfMass);
+        double distance {std::sqrt(distanceX*distanceX + distanceY*distanceY + EPSILON*EPSILON)};
 
         // Gravitational Force: F = GMm/r^2, G = Gravitional constant
         double force {G * body.mass * node->mass / (distance*distance)};
