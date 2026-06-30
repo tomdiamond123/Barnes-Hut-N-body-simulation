@@ -22,20 +22,23 @@ const double STARTINGSIZE {1*(3e8*365.25*24*60*60)}; // size in metres
 // buffer round the edge of STARTING SIZE to allow for movement of particles outside of starting area
 const double SIMSIZE {STARTINGSIZE*1.5}; 
 
-const int NUMOFBODIES {2000};
+const int NUMOFBODIES {5000};
 
 const double theta = 0.5; // higher number = less acurate prediction but higher performance, 0.0 = brute force
 
-const double TIMESTEP = 3600*24*100; // amount of time that passes each frame in seconds
+const double TIMESTEP = 3600*24*5000; // amount of time that passes each frame in seconds
 
 const double STARTMASS = 1e30; // in kilograms
 
 const double EPSILON = SIMSIZE * 0.001; // softens forces produced by objects being very close to eachother
 // const double EPSILON = 0;
+
+const sf::Color COLOUR (0, 255, 255);
 // --------------------------------
 
 const double SCALE {WINDOWSIZE/SIMSIZE};
 const double G {6.67438e-11};
+const double PI {3.14159265358979};
 // const double STARTINGVELOCITYRANGE = 1e5;
 
 // timing class - https://www.learncpp.com/cpp-tutorial/timing-your-code/
@@ -309,13 +312,16 @@ int main()
 
     // --------- Change these - replace with other method of creating starting positions ---------
     // std::uniform_int_distribution createRandomPosition{0, static_cast<int>(SIMSIZE)};
-    std::uniform_real_distribution createRandomPosition{0.0, STARTINGSIZE}; // random position in starting sim
+    // std::uniform_real_distribution createRandomPosition{0.0, STARTINGSIZE}; // random position in starting sim
+    // std::uniform_real_distribution createRandomRadius{0.0, STARTINGSIZE/2};
+    std::uniform_real_distribution createRandomRadius{0.0, 1.0};
+    std::uniform_real_distribution createRandomAngle{0.0, 2*PI};
     // std::uniform_real_distribution createRandomVelocity{-1*STARTINGVELOCITYRANGE, STARTINGVELOCITYRANGE};
     // --------------------------------
 
     sf::CircleShape bodyShape {};
     bodyShape.setRadius(2);
-    bodyShape.setFillColor(sf::Color::Yellow);
+    bodyShape.setFillColor(COLOUR);
     bodyShape.setOrigin({2.0f,2.0f});
 
     std::vector<Body> bodies {};
@@ -325,23 +331,41 @@ int main()
     quadtree = new QuadTree(bodies);
 
     double totalMass {STARTMASS*NUMOFBODIES};
-    double offset {(SIMSIZE-STARTINGSIZE)/2};
+    double offset {SIMSIZE/2};
 
     for (int i=0; i<NUMOFBODIES; i++){
 
         // --------- Change these - replace with other method of creating starting positions ---------
-        Body tempBody {i, {createRandomPosition(mt)+offset, createRandomPosition(mt)+offset}, 1e30, 0.0, 0.0};
+        // double radius {createRandomRadius(mt)};
+        double radius {STARTINGSIZE/2 * std::sqrt(createRandomRadius(mt))};
+        double angle {createRandomAngle(mt)};
+
+        double x {radius*std::cos(angle)+offset};
+        double y {radius*std::sin(angle)+offset};
+
+        std::uniform_real_distribution createRandomVelocity{0.0, std::sqrt(2*G*totalMass/radius)};
+
+        double xVel {0.0};
+        double yVel {0.0};
+
+        // double velocity {createRandomVelocity(mt)};
+        // double direction {createRandomAngle(mt)};
+        // double xVel {velocity*std::cos(direction)};
+        // double yVel {velocity*std::sin(direction)};
+
+        Body tempBody {i, {x, y}, STARTMASS, xVel, yVel};
 
         // Make bodies orbit centre
-        double dx = tempBody.position.first - SIMSIZE/2;
-        double dy = tempBody.position.second - SIMSIZE/2;
-        double dist = std::sqrt(dx*dx + dy*dy);
-        //speed required to maintain orbit, GM/r^2 = mv^2/r, v=sqrt(GM/R)
-        double orbitalSpeed = std::sqrt(G * totalMass / dist);
+        // double dx = tempBody.position.first - SIMSIZE/2;
+        // double dy = tempBody.position.second - SIMSIZE/2;
+        // double dist = std::sqrt(dx*dx + dy*dy);
+        // //speed required to maintain orbit, GM/r^2 = mv^2/r, v=sqrt(GM/R)
+        // double fractionInterior = (dist * dist) / ((STARTINGSIZE/2) * (STARTINGSIZE/2));
+        // double orbitalSpeed = std::sqrt(G * totalMass * fractionInterior / dist);
 
-        //perpindicular vector of (dx,dy) is (-dy,dx)
-        tempBody.xVel = -dy/dist * orbitalSpeed;
-        tempBody.yVel =  dx/dist * orbitalSpeed;
+        // //perpindicular vector of (dx,dy) is (-dy,dx)
+        // tempBody.xVel = -dy/dist * orbitalSpeed;
+        // tempBody.yVel =  dx/dist * orbitalSpeed;
         // --------------------------------
 
         bodies.push_back(tempBody);
