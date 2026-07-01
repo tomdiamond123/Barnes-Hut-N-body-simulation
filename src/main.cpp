@@ -66,9 +66,8 @@ public:
 struct Body{
     int id{};
     coords position{};
+    coords previousPosition{};
     double mass{};
-    double xVel{};
-    double yVel{};
     bool active{true};
 };
 
@@ -289,11 +288,13 @@ public:
         double totalFy {};
         recursiveForceCalculation(body, root, totalFx, totalFy);
 
-        body.xVel += totalFx / body.mass * TIMESTEP;
-        body.yVel += totalFy / body.mass * TIMESTEP;
-
-        body.position.first += body.xVel * TIMESTEP;
-        body.position.second += body.yVel * TIMESTEP;
+        coords newPosition;
+        newPosition.first = body.position.first*2 - body.previousPosition.first 
+        + ((totalFx / body.mass) * TIMESTEP * TIMESTEP);
+        newPosition.second = body.position.second*2 - body.previousPosition.second 
+        + ((totalFy / body.mass) * TIMESTEP * TIMESTEP);
+        body.previousPosition = body.position;
+        body.position = newPosition;
     }
 };
 
@@ -341,29 +342,29 @@ int main()
         double x {radius*std::cos(angle)+offset};
         double y {radius*std::sin(angle)+offset};
 
-        // std::uniform_real_distribution createRandomVelocity{0.0, std::sqrt(2*G*totalMass/radius)};
-
         double xVel {0.0};
         double yVel {0.0};
 
+        //create with random velocities
+        // std::uniform_real_distribution createRandomVelocity{-1*std::sqrt(2*G*totalMass/radius), std::sqrt(2*G*totalMass/radius)};
         // double velocity {createRandomVelocity(mt)};
         // double direction {createRandomAngle(mt)};
         // double xVel {velocity*std::cos(direction)};
         // double yVel {velocity*std::sin(direction)};
-
-        Body tempBody {i, {x, y}, STARTMASS, xVel, yVel};
-
+        
         // Make bodies orbit centre
-        double dx = tempBody.position.first - SIMSIZE/2;
-        double dy = tempBody.position.second - SIMSIZE/2;
+        double dx = x - SIMSIZE/2;
+        double dy = y - SIMSIZE/2;
         double dist = std::sqrt(dx*dx + dy*dy);
         //speed required to maintain orbit, GM/r^2 = mv^2/r, v=sqrt(GM/R)
         double fractionInterior = (dist * dist) / ((STARTINGSIZE/2) * (STARTINGSIZE/2));
         double orbitalSpeed = std::sqrt(G * totalMass * fractionInterior / dist);
 
         //perpindicular vector of (dx,dy) is (-dy,dx)
-        tempBody.xVel = -dy/dist * orbitalSpeed;
-        tempBody.yVel =  dx/dist * orbitalSpeed;
+        xVel = -dy/dist * orbitalSpeed;
+        yVel =  dx/dist * orbitalSpeed;
+
+        Body tempBody {i, {x, y}, {x-xVel*TIMESTEP, y-yVel*TIMESTEP}, STARTMASS};
         // --------------------------------
 
         bodies.push_back(tempBody);
@@ -414,12 +415,13 @@ int main()
                         [quadtree](Body& body){
                             if (!body.active) return;
 
+                            quadtree->updateBodyPosition(body);
+
                             if (body.position.first < 0 || body.position.second < 0 || 
                                 body.position.first > SIMSIZE || body.position.second > SIMSIZE){
                                     body.active = false;
                                     return;
                                 }
-                            quadtree->updateBodyPosition(body);
                         });
 
         for (Body& body: bodies){
