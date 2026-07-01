@@ -13,9 +13,9 @@ If using GCC/G++:
 Required - install tbb for parallel execution:
 
 Run: 
-
+```
 pacman -S mingw-w64-ucrt-x86_64-tbb
-
+```
 in the MSYS2 UCRT64 Terminal
 
 If this doesn't work or you get errors, change this code in the main game loop, this will result in lower frame rates:
