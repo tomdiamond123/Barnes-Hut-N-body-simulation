@@ -9,11 +9,17 @@ Make sure to compile the release build for full performance benifits
 - Or make sure -O3 flag is present when building from command line with gcc
 
 If using GCC/G++:
+
 Required - install tbb for parallel execution:
-Run: pacman -S mingw-w64-ucrt-x86_64-tbb
+
+Run: 
+
+pacman -S mingw-w64-ucrt-x86_64-tbb
+
 in the MSYS2 UCRT64 Terminal
 
 If this doesn't work or you get errors, change this code in the main game loop, this will result in lower frame rates:
+
 std::for_each(std::execution::par_unseq, bodies.begin(), bodies.end(), 
                         [quadtree](Body& body){
                             if (!body.active) return;
@@ -34,6 +40,7 @@ std::for_each(std::execution::par_unseq, bodies.begin(), bodies.end(),
         }
 
 to this:
+
 for (Body& body: bodies){
             if (!body.active) continue;
 
@@ -49,6 +56,7 @@ for (Body& body: bodies){
         }
 
 And remove tbb12 from CMakeLists.txt on this line:
+
 target_link_libraries(barneshut PRIVATE SFML::Graphics tbb12)
 
 
@@ -58,6 +66,7 @@ https://arborjs.org/docs/barnes-hut
 SFML Documentation:
 https://www.sfml-dev.org/documentation/3.1.0/
 https://www.sfml-dev.org/tutorials/3.1/getting-started/cmake/
+
 SFML Template:
 https://github.com/SFML/cmake-sfml-project
 
