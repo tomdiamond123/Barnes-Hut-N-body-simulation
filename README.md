@@ -19,46 +19,46 @@ pacman -S mingw-w64-ucrt-x86_64-tbb
 in the MSYS2 UCRT64 Terminal
 
 If this doesn't work or you get errors, change this code in the main game loop, this will result in lower frame rates:
-
+```
 std::for_each(std::execution::par_unseq, bodies.begin(), bodies.end(), 
-                        [quadtree](Body& body){
-                            if (!body.active) return;
+    [quadtree](Body& body){
+        if (!body.active) return;
 
-                            quadtree->updateBodyPosition(body);
+        quadtree->updateBodyPosition(body);
 
-                            if (body.position.first < 0 || body.position.second < 0 || 
-                                body.position.first > SIMSIZE || body.position.second > SIMSIZE){
-                                    body.active = false;
-                                    return;
-                                }
-                        });
-
-        for (Body& body: bodies){
-            if (!body.active) continue;
-            bodyShape.setPosition({static_cast<float>(body.position.first * SCALE), static_cast<float>(body.position.second * SCALE)});
-            window.draw(bodyShape);
-        }
-
-to this:
+        if (body.position.first < 0 || body.position.second < 0 || 
+            body.position.first > SIMSIZE || body.position.second > SIMSIZE){
+                body.active = false;
+                return;
+            }
+    });
 
 for (Body& body: bodies){
-            if (!body.active) continue;
+    if (!body.active) continue;
+    bodyShape.setPosition({static_cast<float>(body.position.first * SCALE), static_cast<float>(body.position.second * SCALE)});
+    window.draw(bodyShape);
+}
+```
+to this:
+```
+for (Body& body: bodies){
+    if (!body.active) continue;
 
-            if (body.position.first < 0 || body.position.second < 0 || 
-                body.position.first > SIMSIZE || body.position.second > SIMSIZE){
-                    body.active = false;
-                    continue;
-                }
-
-            quadtree->updateBodyPosition(body);
-            bodyShape.setPosition({static_cast<float>(body.position.first * SCALE), static_cast<float>(body.position.second * SCALE)});
-            window.draw(bodyShape);
+    if (body.position.first < 0 || body.position.second < 0 || 
+        body.position.first > SIMSIZE || body.position.second > SIMSIZE){
+            body.active = false;
+            continue;
         }
 
+    quadtree->updateBodyPosition(body);
+    bodyShape.setPosition({static_cast<float>(body.position.first * SCALE), static_cast<float>(body.position.second * SCALE)});
+    window.draw(bodyShape);
+}
+```
 And remove tbb12 from CMakeLists.txt on this line:
-
+```
 target_link_libraries(barneshut PRIVATE SFML::Graphics tbb12)
-
+```
 
 Barnes-Hut Simulation Explanation:
 https://arborjs.org/docs/barnes-hut
