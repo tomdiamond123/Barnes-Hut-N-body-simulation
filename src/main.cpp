@@ -22,11 +22,11 @@ const double STARTINGSIZE {1*(3e8*365.25*24*60*60)}; // size in metres
 // buffer round the edge of STARTING SIZE to allow for movement of particles outside of starting area
 const double SIMSIZE {STARTINGSIZE*1.5}; 
 
-const int NUMOFBODIES {5000};
+const int NUMOFBODIES {10000};
 
 const double theta = 0.5; // higher number = less acurate prediction but higher performance, 0.0 = brute force
 
-const double TIMESTEP = 3600*24*5000; // amount of time that passes each frame in seconds
+const double TIMESTEP = 3600*24*NUMOFBODIES; // amount of time that passes each frame in seconds
 
 const double STARTMASS = 1e30; // in kilograms
 
@@ -236,20 +236,20 @@ private:
             if (node->bodyId==body.id){
                 return;
             }
-            leafCount++;
+            // leafCount++;
             auto [fx, fy] = attraction(body, node);
             totalFx += fx;
             totalFy += fy;
         }
         // if less than theta use approximation as one body
         else if((node->length/calcDistance(body.position, node->centreOfMass)) < theta) {
-            approxCount++;
+            // approxCount++;
             auto [fx, fy] = attraction(body, node);
             totalFx += fx;
             totalFy += fy;
         }
         else{
-            recurseCount++;
+            // recurseCount++;
             if (node->topLeft) recursiveForceCalculation(body, node->topLeft, totalFx, totalFy);
             if (node->topRight) recursiveForceCalculation(body, node->topRight, totalFx, totalFy);
             if (node->bottomLeft) recursiveForceCalculation(body, node->bottomLeft, totalFx, totalFy);
@@ -260,9 +260,9 @@ private:
     
 
 public:
-    size_t leafCount = 0;
-    size_t approxCount = 0;
-    size_t recurseCount = 0;
+    // size_t leafCount = 0;
+    // size_t approxCount = 0;
+    // size_t recurseCount = 0;
 
     //constructor
     QuadTree(const std::vector<Body>& bodies) : bodies(bodies), root(nullptr) {}
@@ -311,8 +311,6 @@ int main()
     std::mt19937 mt{std::random_device{}()};
 
     // --------- Change these - replace with other method of creating starting positions ---------
-    // std::uniform_int_distribution createRandomPosition{0, static_cast<int>(SIMSIZE)};
-    // std::uniform_real_distribution createRandomPosition{0.0, STARTINGSIZE}; // random position in starting sim
     // std::uniform_real_distribution createRandomRadius{0.0, STARTINGSIZE/2};
     std::uniform_real_distribution createRandomRadius{0.0, 1.0};
     std::uniform_real_distribution createRandomAngle{0.0, 2*PI};
@@ -320,7 +318,7 @@ int main()
     // --------------------------------
 
     sf::CircleShape bodyShape {};
-    bodyShape.setRadius(2);
+    bodyShape.setRadius(1);
     bodyShape.setFillColor(COLOUR);
     bodyShape.setOrigin({2.0f,2.0f});
 
@@ -343,7 +341,7 @@ int main()
         double x {radius*std::cos(angle)+offset};
         double y {radius*std::sin(angle)+offset};
 
-        std::uniform_real_distribution createRandomVelocity{0.0, std::sqrt(2*G*totalMass/radius)};
+        // std::uniform_real_distribution createRandomVelocity{0.0, std::sqrt(2*G*totalMass/radius)};
 
         double xVel {0.0};
         double yVel {0.0};
@@ -356,16 +354,16 @@ int main()
         Body tempBody {i, {x, y}, STARTMASS, xVel, yVel};
 
         // Make bodies orbit centre
-        // double dx = tempBody.position.first - SIMSIZE/2;
-        // double dy = tempBody.position.second - SIMSIZE/2;
-        // double dist = std::sqrt(dx*dx + dy*dy);
-        // //speed required to maintain orbit, GM/r^2 = mv^2/r, v=sqrt(GM/R)
-        // double fractionInterior = (dist * dist) / ((STARTINGSIZE/2) * (STARTINGSIZE/2));
-        // double orbitalSpeed = std::sqrt(G * totalMass * fractionInterior / dist);
+        double dx = tempBody.position.first - SIMSIZE/2;
+        double dy = tempBody.position.second - SIMSIZE/2;
+        double dist = std::sqrt(dx*dx + dy*dy);
+        //speed required to maintain orbit, GM/r^2 = mv^2/r, v=sqrt(GM/R)
+        double fractionInterior = (dist * dist) / ((STARTINGSIZE/2) * (STARTINGSIZE/2));
+        double orbitalSpeed = std::sqrt(G * totalMass * fractionInterior / dist);
 
-        // //perpindicular vector of (dx,dy) is (-dy,dx)
-        // tempBody.xVel = -dy/dist * orbitalSpeed;
-        // tempBody.yVel =  dx/dist * orbitalSpeed;
+        //perpindicular vector of (dx,dy) is (-dy,dx)
+        tempBody.xVel = -dy/dist * orbitalSpeed;
+        tempBody.yVel =  dx/dist * orbitalSpeed;
         // --------------------------------
 
         bodies.push_back(tempBody);
@@ -395,7 +393,7 @@ int main()
 
 		window.clear();
 
-        t.reset(); // toggle
+        // t.reset(); // toggle
 
         // std::cout << bodies.size() << '\n';
         // for (Body& body: bodies){
@@ -412,7 +410,6 @@ int main()
         //     window.draw(bodyShape);
         // }
 
-        // Not used as no discernable performace benefit, either due to gcc not implementing it or just equivalent performances
         std::for_each(std::execution::par_unseq, bodies.begin(), bodies.end(), 
                         [quadtree](Body& body){
                             if (!body.active) return;
@@ -433,29 +430,23 @@ int main()
 
         window.display();
 
-        std::cout << "Time to update bodies positions and draw to screen: " << t.elapsed() << "seconds\n"; //toggle
-        t.reset();
+        // std::cout << "Time to update bodies positions and draw to screen: " << t.elapsed() << "seconds\n"; //toggle
+        // t.reset();
 
         // std::cout << "leafCount: " << quadtree->leafCount << "\n";
         // std::cout << "approxCount: " << quadtree->approxCount << "\n";
         // std::cout << "recurseCount: " << quadtree->recurseCount << "\n";
 
         delete quadtree;
-        std::cout << "Time to delete bodies: " << t.elapsed() << "seconds\n"; //toggle
-        t.reset(); //toggle
+        // std::cout << "Time to delete bodies: " << t.elapsed() << "seconds\n"; //toggle
+        // t.reset(); //toggle
 
         quadtree = new QuadTree(bodies);
         for (Body& body: bodies){
             if (!body.active) continue;
             quadtree->insertBody(body);
         }
-        std::cout << "Time to create quadtree and insert bodies: " << t.elapsed() << "seconds\n"; //toggle
-        t.reset();//toggle
-
-        // remove body from bodies vector if outside range of sim
-        // bodies.erase(std::remove_if(bodies.begin(), bodies.end(), [](const Body& body){
-        //     return body.position.first < 0 || body.position.second < 0 
-        //         || body.position.first > SIMSIZE || body.position.second > SIMSIZE;
-        // }), bodies.end());
+        // std::cout << "Time to create quadtree and insert bodies: " << t.elapsed() << "seconds\n"; //toggle
+        // t.reset();//toggle
 	}
 }
